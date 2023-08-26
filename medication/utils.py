@@ -5,7 +5,6 @@ from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
 
-
 from django.conf import settings
 from django.core.files import File
 from django.core.files.base import ContentFile
@@ -16,6 +15,8 @@ from django.template.loader import get_template
 from django.utils import timezone
 from oauth2_provider.models import AccessToken
 from oauth2_provider.settings import oauth2_settings
+
+
 # from sendgrid.helpers.mail import Mail
 # from twilio.rest import Client
 
@@ -117,11 +118,6 @@ def boolean(value):
     if value in ('false', 'no', '0', 0, ''):
         return False
     raise ValueError("Invalid literal for boolean(): {0}".format(value))
-
-
-
-
-
 
 
 # class ManageS3:
@@ -232,8 +228,11 @@ def get_manual_access_token(user):
     # Access token value
     return access_token.token
 
+
 from django.core.mail import EmailMultiAlternatives
 from django.template import Context
+
+
 def send_email(send_to, from_, context, html_template, subject):
     try:
         d = Context(context)
@@ -246,3 +245,49 @@ def send_email(send_to, from_, context, html_template, subject):
         msg.send()
     except Exception as e:
         return
+
+
+import requests
+
+
+class GoogleCalenderManager:
+    def __init__(self, key):
+        self.access_key = key
+
+    def creat_event(self, obj):
+        try:
+
+            headers = {
+                'Authorization': f'Bearer {self.access_key}',
+                'Content-Type': 'application/json',
+            }
+
+            response = requests.post('https://www.googleapis.com/calendar/v3/calendars/primary/events', json=obj,
+                                     headers=headers)
+            created_event = response.json()
+            return created_event["id"]
+
+        except Exception as e:
+            return
+
+    def delete_event(self, event_id):
+        headers = {
+            'Authorization': f'Bearer {self.access_key}',
+            'Content-Type': 'application/json',
+        }
+        response = requests.delete(f'https://www.googleapis.com/calendar/v3/calendars/primary/events/{event_id}',
+                                   headers=headers)
+        if response.status_code == 204:
+            print('Event deleted')
+        else:
+            print('Failed to delete event')
+
+    def get_events(self):
+        headers = {
+            'Authorization': f'Bearer {self.access_key}',
+            'Content-Type': 'application/json',
+        }
+
+        response = requests.get(f'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+                                headers=headers)
+        return response.json()

@@ -17,7 +17,8 @@ from rest_framework.authentication import TokenAuthentication
 from api.permissions import IsOauthAuthenticatedSuperAdminAndCustomer, IsOauthAuthenticatedSuperAdmin, \
     IsOauthAuthenticatedCustomer, IsAuthenticated
 from api.users.models import User, EmailVerificationLink, AccessLevel
-from api.users.serializer import AuthenticateSerializer, UserSerializer, SignUpSerializer
+from api.users.serializer import AuthenticateSerializer, UserSerializer, SignUpSerializer, SocialAuthenticateSerializer
+from api.users.social_auth import SocialAuthFactory, SocialAuthContext
 
 from api.views import BaseAPIView
 from medication.utils import parse_email, boolean, send_email
@@ -92,11 +93,11 @@ class UserProfileUpdateView(BaseAPIView):
     API View for Login Super Admin and Admin
     """
     authentication_classes = (TokenAuthentication,)
-    permission_classes = (IsOauthAuthenticatedSuperAdminAndCustomer,)
+    permission_classes = (IsOauthAuthenticatedCustomer,)
 
-    def get(self, request, pk):
+    def get(self, request, pk=None):
         try:
-            query = User.objects.get(id=pk)
+            query = User.objects.get(id=request.user.id)
             serializer = UserSerializer(query)
             return self.send_response(
                 success=True,
@@ -139,7 +140,8 @@ class UserProfileUpdateView(BaseAPIView):
             # user = User
             serializer = UserSerializer(
                 instance=user_data,
-                data=request.data
+                data=request.data,
+                partial=True
             )
             if serializer.is_valid():
                 serializer.save()
@@ -533,3 +535,109 @@ class UserView(BaseAPIView):
                 description=e)
 
 
+class CustomerUpdateProfileImageView(BaseAPIView):
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsOauthAuthenticatedCustomer,)
+
+    def put(self, request, pk=None):
+        """
+        In this api, only **Super Admin** and **Local Admin** can login. Other users won't be able to login through this API.
+        **Mandatory Fields**
+        * email
+        * password
+        """
+        try:
+            request.user.image = request.data['image']
+            request.user.save(update_fields=["image"])
+
+            return self.send_response(
+                success=True,
+                code=status.HTTP_201_CREATED,
+                payload={
+                    "url": ""
+                },
+                status_code=status.HTTP_201_CREATED,
+                description='Profile Image Updated Successfully'
+            )
+            # else:
+            #     return self.send_response(
+            #         success=True,
+            #         code=f'422',
+            #         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            #         description=serializer.errors,
+            #     )
+
+        # except CustomerProfile.DoesNotExist:
+        #     return self.send_response(
+        #         code=f'422',
+        #         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        #         description=_("Profile doesn't exist")
+        #     )
+        except FieldError:
+            return self.send_response(
+                code=f'500',
+                description=("Cannot resolve keyword given in 'order_by' into field")
+            )
+        except Exception as e:
+            if hasattr(e.__cause__, 'pgcode') and e.__cause__.pgcode == '23505':
+                return self.send_response(
+                    code=f'422',
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    description="User with this email already exists in the system."
+                )
+            else:
+                return self.send_response(
+                    code=f'500',
+                    description=e
+                )
+
+
+class SocialLoginView(BaseAPIView):
+    """
+    API View for Login Super Admin and Admin
+    """
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, pk=None):
+        try:
+            serializer = SocialAuthenticateSerializer(data=request.data)
+            if serializer.is_valid():
+                obj = SocialAuthFactory.create_social_auth(
+                    context=SocialAuthContext(
+                        social_id=serializer.data["token"],
+                        platform=serializer.data["backend"]
+                    )
+                )
+                if obj:
+                    return self.send_response(
+                        success=True,
+                        status_code=status.HTTP_200_OK,
+                        payload=obj.authenticate()
+                    )
+
+                else:
+                    return self.send_response(
+                        success=False,
+                        code='422',
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        description='Invalid backend'
+                    )
+            else:
+                return self.send_response(
+                    success=False,
+                    code='422',
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    description=serializer.errors
+                )
+        except ValueError as e:
+            return self.send_response(
+                success=False,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                description=str(e)
+
+            )
+        except Exception as e:
+            return self.send_response(
+                code=f'500',
+                description=e)

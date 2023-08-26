@@ -19,17 +19,18 @@ class SignUpSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField()
 
     password = serializers.CharField(write_only=True, required=True, allow_null=False, allow_blank=False)
-    date_of_birth = serializers.DateField()
-    blood_group = serializers.CharField()
-    allergies = serializers.CharField()
-    emergency_contact = serializers.CharField()
-    medical_condition = serializers.CharField()
+    date_of_birth = serializers.DateField(required=False, allow_null=False)
+    blood_group = serializers.CharField(required=False, allow_null=False, allow_blank=False)
+    allergies = serializers.CharField(required=False, allow_null=False, allow_blank=False)
+    emergency_contact = serializers.CharField(required=False, allow_null=False, allow_blank=False)
+    medical_condition = serializers.CharField(required=False, allow_null=False, allow_blank=False)
+    image = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
 
     class Meta:
         model = User
         fields = (
             "first_name", "last_name", "email", "password", 'date_of_birth', 'blood_group', 'emergency_contact',
-            'medical_condition', 'allergies')
+            'medical_condition', 'allergies', 'image')
 
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -81,11 +82,14 @@ class UserSerializer(serializers.ModelSerializer):
     allergies = serializers.CharField()
     emergency_contact = serializers.CharField()
     medical_condition = serializers.CharField()
+    image = serializers.ImageField(read_only=True)
+    medical_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'first_name',"last_name", "email", 'role', 'is_active', "is_email_verified", "is_approved",
-                  "date_of_birth", 'blood_group', 'allergies', 'emergency_contact', 'medical_condition'
+        fields = ['id', 'first_name', "last_name", "email", 'role', 'is_active', "is_email_verified", "is_approved",
+                  "date_of_birth", 'blood_group', 'allergies', 'emergency_contact', 'medical_condition', 'image',
+                  "medical_id"
                   ]
 
     def update(self, instance, validated_data):
@@ -97,3 +101,8 @@ class UserSerializer(serializers.ModelSerializer):
         instance.city = validated_data.get('city', instance.city)
         instance.save()
         return instance
+
+
+class SocialAuthenticateSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True, allow_blank=False, allow_null=False)
+    backend = serializers.CharField(required=True, allow_blank=False, allow_null=False)

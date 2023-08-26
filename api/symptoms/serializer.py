@@ -5,6 +5,7 @@ from main.serilaizer import DynamicFieldsModelSerializer
 
 
 class SymptomsSerializer(DynamicFieldsModelSerializer):
+    title = serializers.CharField()
     user_id = serializers.IntegerField(read_only=True)
     description = serializers.CharField()
     severity = serializers.CharField()
@@ -16,12 +17,15 @@ class SymptomsSerializer(DynamicFieldsModelSerializer):
     triggers = serializers.CharField()
     date = serializers.DateField()
     body_part = serializers.CharField()
+    factor_other = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    triger_other = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Symptoms
         fields = [
             "id",
             "user_id",
+            "title",
             "description",
             "severity",
             "time",
@@ -31,7 +35,9 @@ class SymptomsSerializer(DynamicFieldsModelSerializer):
             "notes",
             "triggers",
             "date",
-            "body_part"
+            "body_part",
+            "factor_other",
+            "triger_other"
         ]
 
     def create(self, validated_data):

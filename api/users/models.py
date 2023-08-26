@@ -139,7 +139,6 @@ class User(AbstractBaseUser, Log, PermissionsMixin):
         default=False,
         db_column='IsDeleted'
     )
-    fcm = models.TextField(db_column="FCM", null=True, default=None)
     # search_vector = SearchVectorField(null=True)
     # image = models.ImageField(upload_to=image_directory_path, null=True)
     # bio = models.TextField(db_column='Bio', null=True)
@@ -151,6 +150,10 @@ class User(AbstractBaseUser, Log, PermissionsMixin):
     allergies = models.CharField(max_length=255, null=True)
     emergency_contact = models.CharField(max_length=255, null=True)
     medical_condition = models.CharField(max_length=255, null=True)
+    medical_id = models.CharField(max_length=255, null=True)
+    # access_token = models.TextField(null=True)
+    image = models.ImageField(null=True)
+    google_id = models.TextField(null=True)
     EMAIL_FIELD = 'email'
     USERNAME_FIELD = 'email'
 
@@ -174,6 +177,8 @@ class User(AbstractBaseUser, Log, PermissionsMixin):
     def save(self, *args, **kwargs):
         try:
             if not self.pk:
+                self.medical_id = random.randint(10000, 999999)
+
                 if self.email:
                     self.email = parse_email(self.email)
             super().save()

@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.core.exceptions import FieldError
 from django.db.models import Q, Prefetch
 from django.shortcuts import render
@@ -6,7 +8,7 @@ from django.shortcuts import render
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 
-from api.medicine.models import Medicine, DosageTime
+from api.medicine.models import Medicine, DosageTime, DosageHistory
 from api.medicine.serializer import MedicineSerializer
 from api.permissions import IsOauthAuthenticatedCustomer
 from api.views import BaseAPIView
@@ -61,7 +63,10 @@ class MedicineView(BaseAPIView):
                         "name",
                         "quantity",
                         "start_from",
-                        "total_quantity"
+                        "total_quantity",
+                        "forgot_remainder",
+                        "remainder_time",
+                        "medicine_dosage"
                     )
 
                 )
@@ -204,6 +209,34 @@ class DeleteMedicineView(BaseAPIView):
                 )
 
 
+        except Exception as e:
+            return self.send_response(
+                success=False,
+                description=str(e)
+            )
+
+
+class DoseIntakeView(BaseAPIView):
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsOauthAuthenticatedCustomer,)
+
+    def get(self, request, pk=None):
+        try:
+            obj, is_created = DosageHistory.objects.get_or_create(date=date.today(),
+                                                                  dosage_id=pk)
+            if is_created:
+                return self.send_response(
+                    success=True,
+                    status_code=status.HTTP_200_OK,
+                    description='Dose Intake Successfully'
+                )
+            else:
+                return self.send_response(
+                    success=False,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    code='422',
+                    description='Response already recorded'
+                )
         except Exception as e:
             return self.send_response(
                 success=False,

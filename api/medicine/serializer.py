@@ -2,7 +2,7 @@ from datetime import date
 
 from django.db import transaction
 
-from api.medicine.models import DosageTime, Medicine
+from api.medicine.models import DosageTime, Medicine, MedicineFrequency
 from main.serilaizer import DynamicFieldsModelSerializer
 from rest_framework import serializers
 
@@ -17,7 +17,7 @@ class DosageTimeSerializer(serializers.ModelSerializer):
         fields = ("id", "time", "taken")
 
     def get_taken(self, obj):
-        return True if obj.dosage_history.filter(created_on__date=date.today()).exists() else False
+        return obj.is_taken()
 
 
 class MedicineSerializer(DynamicFieldsModelSerializer):
@@ -30,6 +30,18 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
     medicine_dosage = DosageTimeSerializer(many=True, required=True)
     total_quantity = serializers.SerializerMethodField()
 
+    type = serializers.CharField()
+    dosage_amount = serializers.IntegerField()
+    unit = serializers.CharField()
+    frequency = serializers.CharField()
+
+    end_to = serializers.DateField(required=False, allow_null=True)
+    meal = serializers.CharField()
+    instructions = serializers.CharField()
+    reminders = serializers.CharField()
+    image = serializers.ImageField(allow_null=True, required=False)
+    additional_notes = serializers.CharField()
+
     class Meta:
         model = Medicine
         fields = (
@@ -41,7 +53,18 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
             "start_from",
             "quantity",
             "medicine_dosage",
-            "total_quantity"
+            "total_quantity",
+            "end_to",
+            "type",
+            "dosage_amount",
+            "unit",
+            "frequency",
+            "end_to",
+            "meal",
+            "instructions",
+            "reminders",
+            "image",
+            "additional_notes"
         )
 
     def create(self, validated_data):

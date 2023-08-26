@@ -1,7 +1,8 @@
 from django.urls import path
 
 from api.users.views import UserProfileUpdateView, UserProfilePasswordView, LoginView, \
-    UpdatePassword, ForgotPasswordView, LogoutView, UserView, SignUpView
+    UpdatePassword, ForgotPasswordView, LogoutView, UserView, SignUpView, CustomerUpdateProfileImageView, \
+    SocialLoginView
 
 urlpatterns = [
     path("", UserView.as_view()),
@@ -19,4 +20,6 @@ urlpatterns = [
     path("forgot-password", ForgotPasswordView.as_view(), ),
 
     path("logout", LogoutView.as_view()),
+    path('image', CustomerUpdateProfileImageView.as_view()),
+    path('social/auth', SocialLoginView.as_view())
 ]
