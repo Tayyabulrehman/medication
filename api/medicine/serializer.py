@@ -41,6 +41,7 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
     reminders = serializers.CharField()
     image = serializers.ImageField(allow_null=True, required=False)
     additional_notes = serializers.CharField()
+    medication_type_other = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Medicine
@@ -64,7 +65,8 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
             "instructions",
             "reminders",
             "image",
-            "additional_notes"
+            "additional_notes",
+            "medication_type_other"
         )
 
     def create(self, validated_data):

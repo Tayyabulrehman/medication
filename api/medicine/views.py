@@ -1,4 +1,5 @@
 from datetime import date
+import datetime
 
 from django.core.exceptions import FieldError
 from django.db.models import Q, Prefetch
@@ -58,16 +59,6 @@ class MedicineView(BaseAPIView):
                 serializer = MedicineSerializer(
                     query[offset:limit + offset],
                     many=True,
-                    fields=(
-                        "id",
-                        "name",
-                        "quantity",
-                        "start_from",
-                        "total_quantity",
-                        "forgot_remainder",
-                        "remainder_time",
-                        "medicine_dosage"
-                    )
 
                 )
                 count = query.count()

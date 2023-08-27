@@ -291,3 +291,14 @@ class GoogleCalenderManager:
         response = requests.get(f'https://www.googleapis.com/calendar/v3/calendars/primary/events',
                                 headers=headers)
         return response.json()
+
+
+def search_array_of_dict(array, key, value, is_month):
+    for x in array:
+        if is_month:
+            if x[key].month == value.month:
+                return x
+        else:
+            if x[key] == value:
+                return x
+    return None

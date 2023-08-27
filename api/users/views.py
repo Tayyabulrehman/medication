@@ -554,7 +554,7 @@ class CustomerUpdateProfileImageView(BaseAPIView):
                 success=True,
                 code=status.HTTP_201_CREATED,
                 payload={
-                    "url": ""
+                    "url": request.user.image.url
                 },
                 status_code=status.HTTP_201_CREATED,
                 description='Profile Image Updated Successfully'

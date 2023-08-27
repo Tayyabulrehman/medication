@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 # Create your models here.
@@ -36,11 +37,11 @@ class Appointment(Log):
                 "description": x.title,
                 "start": {
                     "dateTime": x.date.strftime('%Y-%m-%dT%H:%M:%S'),
-                    "timeZone": "America/New_York"
+                    "timeZone": settings.TIME_ZON
                 },
                 "end": {
-                    "dateTime": x.strftime('%Y-%m-%dT%H:%M:%S'),
-                    "timeZone": "America/New_York"
+                    "dateTime": x.date.strftime('%Y-%m-%dT%H:%M:%S'),
+                    "timeZone": settings.TIME_ZON
                 },
                 "location": x.location,
                 # "attendees": [
@@ -50,9 +51,10 @@ class Appointment(Log):
                 "reminders": {
                     "useDefault": False,
                     "overrides": [
-                        {"method": "email", "minutes": x.medicine.remainder_time},
-                        {"method": "popup", "minutes": x.medicine.remainder_time}
+                        {"method": "email", "minutes": x.remainder},
+                        {"method": "popup", "minutes": x.remainder}
                     ]
                 }
             }
             dic[x.id] = a
+        return dic

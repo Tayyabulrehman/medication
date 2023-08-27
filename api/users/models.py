@@ -162,17 +162,17 @@ class User(AbstractBaseUser, Log, PermissionsMixin):
     class Meta:
         db_table = 'Users'
 
-    def update_member(self, validated_data):
-        self.first_name = validated_data.get("first_name", self.first_name)
-        self.last_name = validated_data.get("last_name", self.last_name)
-        self.date_of_birth = validated_data.get("date_of_birth", self.date_of_birth)
-        self.gender = validated_data.get("gender", self.gender)
-        self.phone = validated_data.get("phone", self.phone)
-        self.city = validated_data.get("city", self.city)
-        self.ibn = validated_data.get("ibn", self.ibn)
-        self.cnic = validated_data.get("cnic", self.cnic)
-        self.ntn = validated_data.get("ntn", self.ntn)
-        self.role_id = validated_data.get("role_id", self.role_id)
+    # def update_member(self, validated_data):
+    #     self.first_name = validated_data.get("first_name", self.first_name)
+    #     self.last_name = validated_data.get("last_name", self.last_name)
+    #     self.date_of_birth = validated_data.get("date_of_birth", self.date_of_birth)
+    #     self.gender = validated_data.get("gender", self.gender)
+    #     self.phone = validated_data.get("phone", self.phone)
+    #     self.city = validated_data.get("city", self.city)
+    #     self.ibn = validated_data.get("ibn", self.ibn)
+    #     self.cnic = validated_data.get("cnic", self.cnic)
+    #     self.ntn = validated_data.get("ntn", self.ntn)
+    #     self.role_id = validated_data.get("role_id", self.role_id)
 
     def save(self, *args, **kwargs):
         try:

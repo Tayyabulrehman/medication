@@ -87,18 +87,34 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', "last_name", "email", 'role', 'is_active', "is_email_verified", "is_approved",
-                  "date_of_birth", 'blood_group', 'allergies', 'emergency_contact', 'medical_condition', 'image',
-                  "medical_id"
-                  ]
+        fields = [
+            'id',
+            'first_name',
+            "last_name",
+            "email",
+            'role',
+            'is_active',
+            "is_email_verified",
+            "is_approved",
+            "date_of_birth",
+            'blood_group',
+            'allergies',
+            'emergency_contact',
+            'medical_condition',
+            'image',
+            "medical_id"
+        ]
 
     def update(self, instance, validated_data):
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.date_of_birth = validated_data.get('date_of_birth', instance.date_of_birth)
-        instance.gender = validated_data.get('gender', instance.gender)
-        instance.phone = validated_data.get('phone', instance.phone)
-        instance.city = validated_data.get('city', instance.city)
+        instance.blood_group = validated_data.get('blood_group', instance.blood_group)
+        instance.allergies = validated_data.get('allergies', instance.allergies)
+        instance.emergency_contact = validated_data.get('emergency_contact', instance.emergency_contact)
+        instance.medical_condition = validated_data.get('medical_condition', instance.medical_condition)
+        instance.blood_group = validated_data.get('blood_group', instance.blood_group)
+
         instance.save()
         return instance
 

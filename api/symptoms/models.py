@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 # Create your models here.
@@ -35,11 +36,11 @@ class Symptoms(Log):
                 "description": x.title,
                 "start": {
                     "dateTime": x.datetime.datetime.combine(x.date, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
-                    "timeZone": "America/New_York"
+                    "timeZone": settings.TIME_ZON
                 },
                 "end": {
                     "dateTime": x.datetime.datetime.combine(x.date, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
-                    "timeZone": "America/New_York"
+                    "timeZone": settings.TIME_ZON
                 },
                 "location": "",
                 # "attendees": [

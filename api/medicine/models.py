@@ -1,8 +1,9 @@
 import datetime
 from datetime import date
 
+from django.conf import settings
 from django.db import models
-
+from dateutil.relativedelta import relativedelta
 # Create your models here.
 from api.users.models import User
 from main.models import Log
@@ -40,6 +41,7 @@ class Medicine(Log):
 
     quantity = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    medication_type_other = models.TextField(null=True)
 
     class Meta:
         db_table = 'Medicine'
@@ -62,7 +64,7 @@ class DosageTime(Log):
         data = datetime.date.today()
         routine = self.medicine.frequency
         if routine == MedicineFrequency.DAILY:
-            return True if self.dosage_history.filter(created_on__date=data).exists() else False
+            return True if self.dosage_history.filter(date=data).exists() else False
         else:
             days = 7 if self.medicine.frequency == MedicineFrequency.WEEKLY else 30
             last_dosage = self.dosage_history.last()
@@ -90,11 +92,11 @@ class DosageTime(Log):
                     "description": x.medicine.name,
                     "start": {
                         "dateTime": daye_time.strftime('%Y-%m-%dT%H:%M:%S'),
-                        "timeZone": "America/New_York"
+                        "timeZone": settings.TIME_ZON
                     },
                     "end": {
                         "dateTime": daye_time.strftime('%Y-%m-%dT%H:%M:%S'),
-                        "timeZone": "America/New_York"
+                        "timeZone": settings.TIME_ZON
                     },
                     "location": "Event Location",
                     # "attendees": [
@@ -122,6 +124,84 @@ class DosageTime(Log):
                     days -= 30
             dic[x.id] = arr
         return dic
+
+    @staticmethod
+    def get_total_dose_by_month():
+        try:
+            month = []
+
+            data = []
+            start = Medicine.objects.filter(is_active=True).order_by("start_from").first().start_from
+            end = date.today()
+            month.append(start)
+            while start.month < end.month:
+                start += relativedelta(months=1)
+                month.append(start)
+            for x in month:
+                count = 0
+                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True):
+                    days = 1
+                    if x + datetime.timedelta(days=30) <= y.end_to:
+                        days = 30
+                    else:
+                        days = (date.today() - y.start_from).days
+                        # days =1 if days==0 else days
+                    if y.frequency == MedicineFrequency.MONTHLY:
+                        days = 1
+                    if y.frequency == MedicineFrequency.WEEKLY:
+                        days = days / 7
+                    count += y.medicine_dosage.filter(is_active=True).count() * days
+                data.append({
+                    "month": x,
+                    "c": count
+                })
+            return data
+
+
+
+
+        except:
+            return 10
+
+    @staticmethod
+    def get_total_dose_by_week():
+        try:
+            month = []
+            data = []
+            week = 1
+            start = Medicine.objects.filter(is_active=True).order_by("start_from").first().start_from
+            end = date.today()
+            month.append(start)
+            start += relativedelta(weeks=1)
+            while start < end:
+                start += relativedelta(weeks=1)
+                month.append(start)
+            for x in month:
+                count = 0
+                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True):
+                    days = 0
+                    if x + datetime.timedelta(days=7) <= y.end_to:
+                        days = 7
+                    else:
+                        days = (date.today() - y.start_from).days
+                        # days = 1 if days == 0 else days
+                    if y.frequency == MedicineFrequency.MONTHLY:
+                        days = 0
+                    if y.frequency == MedicineFrequency.WEEKLY:
+                        days = 1
+                    count += y.medicine_dosage.filter(is_active=True).count() * days
+                data.append({
+                    "week": week,
+                    "c": count
+                })
+                week += 1
+            return data
+
+
+
+
+        except:
+            return 10
 
 
 class DosageHistory(Log):

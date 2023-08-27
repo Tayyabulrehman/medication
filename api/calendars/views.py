@@ -271,24 +271,25 @@ class CalenderSynchronizationView(BaseAPIView):
             z = Symptoms.get_un_sync_appointment()
             appoint, dos, sym = [], [], []
             if x:
-                for x, y in x.items():
-                    id = obj.creat_event(y)
-                    appoint.append(Appointment(id=x, event_id=id))
+                for c, d in x.items():
+                    id = obj.creat_event(d)
+                    appoint.append(Appointment(id=c, event_id=id))
+                Appointment.objects.bulk_update(appoint, fields=["event_id"])
+
             if y:
-                for x, y in y.items():
+                for j, k in y.items():
                     s = ""
-                    for a in y:
+                    for a in k:
                         s += f'{str(obj.creat_event(a))},'
-                    dos.append(DosageTime(id=x, event_id=s))
+                    dos.append(DosageTime(id=j, event_id=s))
+                DosageTime.objects.bulk_update(dos, fields=["event_id"])
 
             if z:
                 for x, y in z.items():
                     id = obj.creat_event(y)
                     sym.append(Symptoms(id=x, event_id=id))
 
-            Symptoms.objects.bulk_update(sym, fields=["event_id"])
-            DosageTime.objects.bulk_update(dos, fields=["event_id"])
-            Appointment.objects.bulk_update(appoint, fields=["event_id"])
+                Symptoms.objects.bulk_update(sym, fields=["event_id"])
 
             return self.send_response(
                 success=True,
