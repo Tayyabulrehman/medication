@@ -28,8 +28,8 @@ class Appointment(Log):
     #         raise
 
     @staticmethod
-    def get_un_sync_appointment():
-        obj = Appointment.objects.filter(event_id__isnull=True)
+    def get_un_sync_appointment(user_id):
+        obj = Appointment.objects.filter(event_id__isnull=True, user_id=user_id)
         dic = {}
         for x in obj:
             a = {

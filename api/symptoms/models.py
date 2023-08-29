@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.db import models
 
@@ -27,19 +29,19 @@ class Symptoms(Log):
         db_table = 'Symptoms'
 
     @staticmethod
-    def get_un_sync_appointment():
-        obj = Symptoms.objects.filter(event_id__isnull=True)
+    def get_un_sync_appointment(user_id):
+        obj = Symptoms.objects.filter(event_id__isnull=True, user_id=user_id)
         dic = {}
         for x in obj:
             a = {
                 "summary": x.title,
                 "description": x.title,
                 "start": {
-                    "dateTime": x.datetime.datetime.combine(x.date, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
+                    "dateTime": datetime.datetime.combine(x.date, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
                     "timeZone": settings.TIME_ZON
                 },
                 "end": {
-                    "dateTime": x.datetime.datetime.combine(x.date, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
+                    "dateTime": datetime.datetime.combine(x.date, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
                     "timeZone": settings.TIME_ZON
                 },
                 "location": "",
@@ -56,3 +58,4 @@ class Symptoms(Log):
                 }
             }
             dic[x.id] = a
+        return dic

@@ -9,7 +9,7 @@ from rest_framework.authentication import TokenAuthentication
 
 from api.calendars.models import Appointment
 from api.calendars.serializer import AppointmentSerializer, CalendarSerializer
-from api.medicine.models import DosageTime
+from api.medicine.models import DosageTime, Medicine
 from api.permissions import IsOauthAuthenticatedCustomer
 from api.symptoms.models import Symptoms
 from api.users.models import User
@@ -224,6 +224,9 @@ class CalendarView(BaseAPIView):
                          to_attr='appointment'),
                 Prefetch("user_symptoms", queryset=Symptoms.objects.all().order_by('date'),
                          to_attr='symptoms'),
+
+                Prefetch("user_medicine", queryset=Medicine.objects.filter(is_active=True).order_by('start_from'),
+                         to_attr='medicine'),
             ).get(query_set)
 
             serializer = CalendarSerializer(query
@@ -266,9 +269,9 @@ class CalenderSynchronizationView(BaseAPIView):
         try:
             obj = GoogleCalenderManager(key=request.data["token"])
 
-            x = Appointment.get_un_sync_appointment()
-            y = DosageTime.get_un_sync_dosage()
-            z = Symptoms.get_un_sync_appointment()
+            x = Appointment.get_un_sync_appointment(request.user.id)
+            y = DosageTime.get_un_sync_dosage(request.user.id)
+            z = Symptoms.get_un_sync_appointment(request.user.id)
             appoint, dos, sym = [], [], []
             if x:
                 for c, d in x.items():

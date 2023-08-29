@@ -255,6 +255,7 @@ class GoogleCalenderManager:
         self.access_key = key
 
     def creat_event(self, obj):
+        global response
         try:
 
             headers = {
@@ -268,7 +269,7 @@ class GoogleCalenderManager:
             return created_event["id"]
 
         except Exception as e:
-            return
+            raise Exception(response.json())
 
     def delete_event(self, event_id):
         headers = {

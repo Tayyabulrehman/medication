@@ -74,9 +74,10 @@ class DosageTime(Log):
                 return False if self.medicine.start_from == data else True
 
     @staticmethod
-    def get_un_sync_dosage():
+    def get_un_sync_dosage(user_id):
         dic = {}
-        obj = DosageTime.objects.filter(event_id__isnull=True, is_active=True, medicine__is_active=True)
+        obj = DosageTime.objects.filter(event_id__isnull=True, is_active=True, medicine__is_active=True,
+                                        medicine__user_id=user_id)
         for x in obj:
             arr = []
             if x.medicine.end_to:
@@ -126,12 +127,12 @@ class DosageTime(Log):
         return dic
 
     @staticmethod
-    def get_total_dose_by_month():
+    def get_total_dose_by_month(user_id):
         try:
             month = []
 
             data = []
-            start = Medicine.objects.filter(is_active=True).order_by("start_from").first().start_from
+            start = Medicine.objects.filter(is_active=True, user_id=user_id).order_by("start_from").first().start_from
             end = date.today()
             month.append(start)
             while start.month < end.month:
@@ -139,18 +140,18 @@ class DosageTime(Log):
                 month.append(start)
             for x in month:
                 count = 0
-                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True):
+                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True, user_id=user_id):
                     days = 1
-                    if x + datetime.timedelta(days=30) <= y.end_to:
-                        days = 30
-                    else:
-                        days = (date.today() - y.start_from).days
-                        # days =1 if days==0 else days
-                    if y.frequency == MedicineFrequency.MONTHLY:
-                        days = 1
-                    if y.frequency == MedicineFrequency.WEEKLY:
-                        days = days / 7
-                    count += y.medicine_dosage.filter(is_active=True).count() * days
+                if x + datetime.timedelta(days=30) <= y.end_to:
+                    days = 30
+                else:
+                    days = (date.today() - y.start_from).days
+                # days =1 if days==0 else days
+                if y.frequency == MedicineFrequency.MONTHLY:
+                    days = 1
+                if y.frequency == MedicineFrequency.WEEKLY:
+                    days = days / 7
+                count += y.medicine_dosage.filter(is_active=True).count() * days
                 data.append({
                     "month": x,
                     "c": count
@@ -161,15 +162,15 @@ class DosageTime(Log):
 
 
         except:
-            return 10
+            return []
 
     @staticmethod
-    def get_total_dose_by_week():
+    def get_total_dose_by_week(user_id):
         try:
             month = []
             data = []
             week = 1
-            start = Medicine.objects.filter(is_active=True).order_by("start_from").first().start_from
+            start = Medicine.objects.filter(is_active=True, user_id=user_id).order_by("start_from").first().start_from
             end = date.today()
             month.append(start)
             start += relativedelta(weeks=1)
@@ -178,7 +179,7 @@ class DosageTime(Log):
                 month.append(start)
             for x in month:
                 count = 0
-                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True):
+                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True, user_id=user_id):
                     days = 0
                     if x + datetime.timedelta(days=7) <= y.end_to:
                         days = 7
@@ -201,9 +202,16 @@ class DosageTime(Log):
 
 
         except:
-            return 10
+            return []
 
 
 class DosageHistory(Log):
     dosage = models.ForeignKey(DosageTime, on_delete=models.CASCADE, null=True, related_name='dosage_history')
     date = models.DateField(null=True)
+
+
+class Images(models.Model):
+    image = models.FileField(db_column="File", default=None, null=True)
+
+    class Meta:
+        db_table = 'Wiztap_Images'

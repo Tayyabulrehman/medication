@@ -26,7 +26,7 @@ class DashboardView(BaseAPIView):
     def get(self, request):
         try:
             s = date.today()
-            query = Q(start_from__lte=date.today()) & Q(end_to__gte=s) & Q(is_active=True, )
+            query = Q(user_id=request.user.id, start_from__lte=date.today()) & Q(is_active=True, ) | Q(end_to__gte=s)
             medi_query_set = Medicine \
                 .objects \
                 .filter(query) \
@@ -44,26 +44,30 @@ class DashboardView(BaseAPIView):
                     arr.append(x)
 
             serializer1 = MedicineSerializer(arr, many=True)
-            appointment_query_set = Appointment.objects.filter(date=date.today())
+            appointment_query_set = Appointment.objects.filter(date__date='2023-08-30', user_id=request.user.id)
             serializer2 = AppointmentSerializer(appointment_query_set, many=True)
-            total = Medicine.objects.filter(is_active=True).aggregate(medi=Sum('quantity'))['medi']
-            taken = DosageTime.objects.filter(is_active=True, medicine__is_active=True).count()
+            total = Medicine.objects.filter(is_active=True, user_id=request.user.id).aggregate(medi=Sum('quantity'))[
+                'medi']
+            total = total if total else 0
+            taken = DosageTime.objects.filter(is_active=True, medicine__is_active=True,
+                                              medicine__user_id=request.user.id).count()
 
             # Monthly
             taken_monthly = DosageHistory. \
-                objects.filter(dosage__medicine__is_active=True). \
+                objects.filter(dosage__medicine__is_active=True, dosage__medicine__user_id=request.user.id). \
                 annotate(month=TruncMonth('date')) \
                 .values('month') \
                 .annotate(c=Count('id')) \
                 .values('month', 'c')
-            taken_weekly = DosageHistory.objects.filter(dosage__medicine__is_active=True) \
+            taken_weekly = DosageHistory.objects.filter(dosage__medicine__is_active=True,
+                                                        dosage__medicine__user_id=request.user.id) \
                 .annotate(week=ExtractWeekDay('date')) \
                 .values('week') \
                 .annotate(c=Count('id')) \
                 .values('week', 'c')
 
-            total_by_month = DosageTime.get_total_dose_by_month()
-            total_by_week = DosageTime.get_total_dose_by_week()
+            total_by_month = DosageTime.get_total_dose_by_month(request.user.id)
+            total_by_week = DosageTime.get_total_dose_by_week(request.user.id)
             monthly = []
             weekly = []
             for x in total_by_month:
@@ -75,7 +79,7 @@ class DashboardView(BaseAPIView):
                     {
                         "month": x['month'],
                         "taken": t,
-                        "missed": 0 if x["c"] - t < 0 else x["c"] - t < 0
+                        "missed": 0 if x["c"] - t < 0 else x["c"] - t
                     }
                 )
                 for x in total_by_week:
@@ -110,8 +114,6 @@ class DashboardView(BaseAPIView):
                     "weekly": weekly
                 }
             )
-
-
 
         except Exception as e:
             return self.send_response(

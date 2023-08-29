@@ -10,7 +10,7 @@ from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 
 from api.medicine.models import Medicine, DosageTime, DosageHistory
-from api.medicine.serializer import MedicineSerializer
+from api.medicine.serializer import MedicineSerializer, ImageSerializer
 from api.permissions import IsOauthAuthenticatedCustomer
 from api.views import BaseAPIView
 
@@ -231,5 +231,37 @@ class DoseIntakeView(BaseAPIView):
         except Exception as e:
             return self.send_response(
                 success=False,
+                description=str(e)
+            )
+
+
+class ImageUploadView(BaseAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request):
+        try:
+            serializer = ImageSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return self.send_response(
+                    success=True,
+                    code=status.HTTP_201_CREATED,
+                    payload={
+                        "name": serializer.instance.image.name,
+                        "url": serializer.instance.image.url
+                    },
+                    status_code=status.HTTP_201_CREATED,
+                    description=('Image Uploaded')
+                )
+            else:
+                return self.send_response(
+                    code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    description=('Unable to upload image. Try again.'),
+                    exception=serializer.errors
+                )
+        except Exception as e:
+            return self.send_response(
                 description=str(e)
             )

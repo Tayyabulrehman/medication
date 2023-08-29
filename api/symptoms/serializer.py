@@ -52,5 +52,7 @@ class SymptomsSerializer(DynamicFieldsModelSerializer):
         instance.medications_taken = validated_data.get("medications_taken", instance.medications_taken)
         instance.notes = validated_data.get("notes", instance.notes)
         instance.triggers = validated_data.get("triggers", instance.triggers)
+        instance.factor_other = validated_data.get("factor_other", instance.factor_other)
+        instance.triger_other = validated_data.get("triger_other", instance.triger_other)
         instance.save()
         return instance
