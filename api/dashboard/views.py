@@ -3,7 +3,7 @@ from datetime import date
 
 from django.db import models
 from django.db.models import Q, F, Case, When, Value, Sum, Count
-from django.db.models.functions import ExtractDay, TruncMonth
+from django.db.models.functions import ExtractDay, TruncMonth, TruncWeek
 from django.shortcuts import render
 
 # Create your views here.
@@ -26,10 +26,10 @@ class DashboardView(BaseAPIView):
     def get(self, request):
         try:
             s = date.today()
-            query = Q(user_id=request.user.id, start_from__lte=date.today()) & Q(is_active=True, ) | Q(end_to__gte=s)
+            query = Q(user_id=request.user.id, ) & Q(is_active=True, )
             medi_query_set = Medicine \
                 .objects \
-                .filter(query) \
+                .filter(query, medicine_event__event__date=s).distinct() \
                 .annotate(
                 divisor=Case(
                     When(frequency='daily', then=Value(1)),
@@ -44,14 +44,21 @@ class DashboardView(BaseAPIView):
                     arr.append(x)
 
             serializer1 = MedicineSerializer(arr, many=True)
-            appointment_query_set = Appointment.objects.filter(date__date='2023-08-30', user_id=request.user.id)
+            appointment_query_set = Appointment.objects.filter(date__date=date.today(), user_id=request.user.id)
             serializer2 = AppointmentSerializer(appointment_query_set, many=True)
-            total = Medicine.objects.filter(is_active=True, user_id=request.user.id).aggregate(medi=Sum('quantity'))[
-                'medi']
-            total = total if total else 0
-            taken = DosageTime.objects.filter(is_active=True, medicine__is_active=True,
-                                              medicine__user_id=request.user.id).count()
+            # total = Medicine.objects.filter(is_active=True, user_id=request.user.id).aggregate(medi=Sum('quantity'))[
+            #     'medi']
+            # total = total if total else 0
+            # taken = DosageTime.objects.filter(is_active=True, medicine__is_active=True,
+            #                                   medicine__user_id=request.user.id).count()
 
+            taken, pending = 0, 0
+            for x in serializer1.data:
+                for y in x['medicine_dosage']:
+                    if y['taken']:
+                        taken += 1
+                    else:
+                        pending += 1
             # Monthly
             taken_monthly = DosageHistory. \
                 objects.filter(dosage__medicine__is_active=True, dosage__medicine__user_id=request.user.id). \
@@ -59,9 +66,14 @@ class DashboardView(BaseAPIView):
                 .values('month') \
                 .annotate(c=Count('id')) \
                 .values('month', 'c')
-            taken_weekly = DosageHistory.objects.filter(dosage__medicine__is_active=True,
-                                                        dosage__medicine__user_id=request.user.id) \
-                .annotate(week=ExtractWeekDay('date')) \
+            taken_weekly = DosageHistory \
+                .objects \
+                .filter(
+                dosage__medicine__is_active=True,
+                dosage__medicine__user_id=request.user.id,
+                date__range=[date.today() - datetime.timedelta(days=6), date.today()]
+            ) \
+                .annotate(week=F('date')) \
                 .values('week') \
                 .annotate(c=Count('id')) \
                 .values('week', 'c')
@@ -82,18 +94,18 @@ class DashboardView(BaseAPIView):
                         "missed": 0 if x["c"] - t < 0 else x["c"] - t
                     }
                 )
-                for x in total_by_week:
-                    s = search_array_of_dict(taken_weekly, 'week', x['week'], is_month=False)
-                    t = 0
-                    if s:
-                        t = s['c']
-                    weekly.append(
-                        {
-                            "week": x['week'],
-                            "taken": t,
-                            "missed": 0 if x["c"] - t < 0 else x["c"] - t
-                        }
-                    )
+            for x in total_by_week:
+                s = search_array_of_dict(taken_weekly, 'week', x['week'], is_month=False)
+                t = 0
+                if s:
+                    t = s['c']
+                weekly.append(
+                    {
+                        "week": x['week'],
+                        "taken": t,
+                        "missed": 0 if x["c"] - t < 0 else x["c"] - t
+                    }
+                )
             # for x, y in zip(total_by_week, taken_weekly):
             #     monthly.append(
             #         {
@@ -109,7 +121,7 @@ class DashboardView(BaseAPIView):
                     "appointment": serializer2.data,
                     "medicine": serializer1.data,
                     "taken": taken,
-                    "pending": total - taken,
+                    "pending": pending,
                     "monthly": monthly,
                     "weekly": weekly
                 }

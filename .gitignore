@@ -112,3 +112,4 @@ venv/
 medication/settings/base.py
 
 
+medication/media/

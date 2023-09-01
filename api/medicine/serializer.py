@@ -2,7 +2,7 @@ from datetime import date
 
 from django.db import transaction
 
-from api.medicine.models import DosageTime, Medicine, MedicineFrequency, Images
+from api.medicine.models import DosageTime, Medicine, MedicineFrequency, Images, EventMedication
 from main.serilaizer import DynamicFieldsModelSerializer
 from rest_framework import serializers
 
@@ -74,6 +74,7 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
             dosage = validated_data.pop("medicine_dosage")
             obj = Medicine.objects.create(**validated_data)
             DosageTime.objects.bulk_create([DosageTime(medicine_id=obj.id, time=x['time']) for x in dosage])
+            Medicine.creat_events(obj)
             return obj
 
     def update(self, instance, validated_data):
@@ -178,6 +179,7 @@ class MedicineRemainderSerializer(DynamicFieldsModelSerializer):
             dosage = validated_data.pop("medicine_dosage")
             obj = Medicine.objects.create(**validated_data)
             DosageTime.objects.bulk_create([DosageTime(medicine_id=obj.id, time=x['time']) for x in dosage])
+
             return obj
 
     def update(self, instance, validated_data):
@@ -216,3 +218,11 @@ class MedicineRemainderSerializer(DynamicFieldsModelSerializer):
         except:
             return data
         return data
+
+
+class EventMedicineSerializer(serializers.ModelSerializer):
+    medicine = MedicineSerializer(read_only=True)
+
+    class Meta:
+        model = EventMedication
+        fields = ["medicine"]

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 
 # Create your models here.
+from api.calendars.models import Event
 from api.users.models import User
 from main.models import Log
 
@@ -24,9 +25,16 @@ class Symptoms(Log):
     factor_other = models.CharField(max_length=255, null=True)
     triger_other = models.CharField(max_length=255, null=True)
     event_id = models.TextField(max_length=255, null=True)
+    events = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='event_symptoms', null=True)
 
     class Meta:
         db_table = 'Symptoms'
+
+    @staticmethod
+    def create(validated_data):
+        event, is_created = Event.objects.get_or_create(date=validated_data['date'], user_id=validated_data['user_id'])
+        validated_data["events_id"] = event.id
+        return Symptoms.objects.create(**validated_data)
 
     @staticmethod
     def get_un_sync_appointment(user_id):

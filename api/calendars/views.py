@@ -7,9 +7,9 @@ from django.shortcuts import render
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 
-from api.calendars.models import Appointment
-from api.calendars.serializer import AppointmentSerializer, CalendarSerializer
-from api.medicine.models import DosageTime, Medicine
+from api.calendars.models import Appointment, Event
+from api.calendars.serializer import AppointmentSerializer, EventSerializer
+from api.medicine.models import DosageTime, Medicine, EventMedication
 from api.permissions import IsOauthAuthenticatedCustomer
 from api.symptoms.models import Symptoms
 from api.users.models import User
@@ -211,7 +211,7 @@ class CalendarView(BaseAPIView):
             #  drop-dow params shows only parent products
             # listing = request.query_params.get('drop-down', None)
 
-            query_set = Q(id=request.user.id)
+            query_set = Q(user_id=request.user.id)
 
             # if pk:
             #     query_set &= Q(id=pk)
@@ -219,18 +219,17 @@ class CalendarView(BaseAPIView):
             #     serializer = AppointmentSerializer(query)
             #     count = 1
             # else:
-            query = User.objects.prefetch_related(
-                Prefetch("user_appointment", queryset=Appointment.objects.all().order_by('date'),
+            query = Event.objects.prefetch_related(
+                Prefetch("event_appointment", queryset=Appointment.objects.all().order_by('date'),
                          to_attr='appointment'),
-                Prefetch("user_symptoms", queryset=Symptoms.objects.all().order_by('date'),
+                Prefetch("event_symptoms", queryset=Symptoms.objects.all().order_by('date'),
                          to_attr='symptoms'),
 
-                Prefetch("user_medicine", queryset=Medicine.objects.filter(is_active=True).order_by('start_from'),
+                Prefetch("event_medicine", queryset=EventMedication.objects.filter(is_active=True),
                          to_attr='medicine'),
-            ).get(query_set)
+            ).filter(query_set)
 
-            serializer = CalendarSerializer(query
-                                            )
+            serializer = EventSerializer(query, many=True)
             count = 1
             return self.send_response(
                 success=True,

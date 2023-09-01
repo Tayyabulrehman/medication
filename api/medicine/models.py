@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 from dateutil.relativedelta import relativedelta
 # Create your models here.
+from api.calendars.models import Event
 from api.users.models import User
 from main.models import Log
 
@@ -13,6 +14,7 @@ class MedicineFrequency:
     DAILY = 'daily'
     WEEKLY = 'weekly'
     MONTHLY = 'monthly'
+    DAYS = 'days'
 
 
 class Remainder:
@@ -48,6 +50,28 @@ class Medicine(Log):
 
     def get_quantity(self):
         return self.quantity - DosageHistory.objects.filter(dosage__medicine_id=self.id).count()
+
+    @staticmethod
+    def creat_events(medicine):
+        if medicine.end_to:
+            days = (medicine.end_to - medicine.start_from).days
+        else:
+            days = medicine.quantity
+
+        daye_time = medicine.start_from
+        while days >= 0:
+            event, is_created = Event.objects.get_or_create(user_id=medicine.user.id, date=daye_time)
+            EventMedication.objects.create(event_id=event.id, medicine_id=medicine.id)
+            if medicine.frequency == MedicineFrequency.DAILY:
+                days -= 1
+                daye_time = daye_time + datetime.timedelta(days=1)
+
+            if medicine.frequency == MedicineFrequency.WEEKLY:
+                daye_time = daye_time + datetime.timedelta(days=7)
+                days -= 7
+            if medicine.frequency == MedicineFrequency.MONTHLY:
+                daye_time = daye_time + datetime.timedelta(days=30)
+                days -= 30
 
     #
     # def is_enable(self):
@@ -130,9 +154,10 @@ class DosageTime(Log):
     def get_total_dose_by_month(user_id):
         try:
             month = []
-
             data = []
-            start = Medicine.objects.filter(is_active=True, user_id=user_id).order_by("start_from").first().start_from
+            start = EventMedication.objects.filter(is_active=True, medicine__user_id=user_id).order_by(
+                "event__date").first().event.date
+            # start = Medicine.objects.filter(is_active=True, user_id=user_id).order_by("start_from").first().start_from
             end = date.today()
             month.append(start)
             while start.month < end.month:
@@ -140,18 +165,20 @@ class DosageTime(Log):
                 month.append(start)
             for x in month:
                 count = 0
-                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True, user_id=user_id):
+                for y in EventMedication.objects.filter(is_active=True, medicine__user_id=user_id,
+                                                        event__date__month=x.month).exclude(event__date=date.today()):
                     days = 1
-                if x + datetime.timedelta(days=30) <= y.end_to:
-                    days = 30
-                else:
-                    days = (date.today() - y.start_from).days
-                # days =1 if days==0 else days
-                if y.frequency == MedicineFrequency.MONTHLY:
-                    days = 1
-                if y.frequency == MedicineFrequency.WEEKLY:
-                    days = days / 7
-                count += y.medicine_dosage.filter(is_active=True).count() * days
+                    count += y.medicine.medicine_dosage.filter(is_active=True).count() * days
+
+                # if x + datetime.timedelta(days=30) <= y.end_to:
+                #     days = 30
+                # else:
+                #     days = (date.today() - y.start_from).days
+                # # days =1 if days==0 else days
+                # if y.frequency == MedicineFrequency.MONTHLY:
+                #     days = 1
+                # if y.frequency == MedicineFrequency.WEEKLY:
+                #     days = days / 7
                 data.append({
                     "month": x,
                     "c": count
@@ -170,29 +197,34 @@ class DosageTime(Log):
             month = []
             data = []
             week = 1
-            start = Medicine.objects.filter(is_active=True, user_id=user_id).order_by("start_from").first().start_from
+            start = date.today() - datetime.timedelta(days=6)
             end = date.today()
             month.append(start)
-            start += relativedelta(weeks=1)
+            # start += datetime.timedelta(days=7)
             while start < end:
-                start += relativedelta(weeks=1)
+                start += datetime.timedelta(days=1)
+                if start > end:
+                    start = end
                 month.append(start)
             for x in month:
                 count = 0
-                for y in Medicine.objects.filter(start_from__lte=x, end_to__gte=x, is_active=True, user_id=user_id):
-                    days = 0
-                    if x + datetime.timedelta(days=7) <= y.end_to:
-                        days = 7
-                    else:
-                        days = (date.today() - y.start_from).days
-                        # days = 1 if days == 0 else days
-                    if y.frequency == MedicineFrequency.MONTHLY:
-                        days = 0
-                    if y.frequency == MedicineFrequency.WEEKLY:
-                        days = 1
-                    count += y.medicine_dosage.filter(is_active=True).count() * days
+                for y in EventMedication.objects.filter(
+                        is_active=True, medicine__user_id=user_id,
+                        event__date=x
+                ):
+                    days = 1
+                    # if x + datetime.timedelta(days=7) <= y.end_to:
+                    #     days = 7
+                    # else:
+                    #     days = (date.today() - y.start_from).days
+                    #     # days = 1 if days == 0 else days
+                    # if y.frequency == MedicineFrequency.MONTHLY:
+                    #     days = 0
+                    # if y.frequency == MedicineFrequency.WEEKLY:
+                    #     days = 1
+                    count += y.medicine.medicine_dosage.filter(is_active=True).count() * days
                 data.append({
-                    "week": week,
+                    "week": x,
                     "c": count
                 })
                 week += 1
@@ -215,3 +247,12 @@ class Images(models.Model):
 
     class Meta:
         db_table = 'Wiztap_Images'
+
+
+class EventMedication(Log):
+    medicine = models.ForeignKey(Medicine, related_name='medicine_event', on_delete=models.CASCADE, null=True)
+    event = models.ForeignKey(Event, related_name='event_medicine', on_delete=models.CASCADE, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "EventMedication"

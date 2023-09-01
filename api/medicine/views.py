@@ -213,7 +213,9 @@ class DoseIntakeView(BaseAPIView):
 
     def get(self, request, pk=None):
         try:
-            obj, is_created = DosageHistory.objects.get_or_create(date=date.today(),
+            dat = request.query_params.get('date', date.today())
+
+            obj, is_created = DosageHistory.objects.get_or_create(date=dat,
                                                                   dosage_id=pk)
             if is_created:
                 return self.send_response(

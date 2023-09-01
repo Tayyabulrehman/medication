@@ -41,7 +41,7 @@ class SymptomsSerializer(DynamicFieldsModelSerializer):
         ]
 
     def create(self, validated_data):
-        return Symptoms.objects.create(**validated_data)
+        return Symptoms.create(validated_data)
 
     def update(self, instance, validated_data):
         instance.description = validated_data.get("description", instance.description)
