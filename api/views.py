@@ -158,4 +158,6 @@ class BaseAPIView(APIView):
             # fixme: Add logger to log this exception
             return False
 
-
+    def get_sorting_query(self, order, column):
+        order = '-' if order == 'desc' else ""
+        return f'{order}{column}'

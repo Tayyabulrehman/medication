@@ -1,3 +1,4 @@
+import calendar
 from datetime import date
 import datetime
 
@@ -23,16 +24,34 @@ class MedicineView(BaseAPIView):
         try:
             limit = int(request.query_params.get('limit', 10))
             offset = int(request.query_params.get('offset', 0))
-            # category_id = request.query_params.get('category-id', None)
-            # search = request.query_params.get('search', None)
-            # publish = request.query_params.get('publish', None)
-            # out_stock = request.query_params.get('out-of-stock', None)
-            # low_thresh = request.query_params.get('low-thresh', None)
-            # is_active = request.query_params.get('is-active', None)
-            #  drop-dow params shows only parent products
-            # listing = request.query_params.get('drop-down', None)
+            order_by = request.query_params.get('order-by', 'desc')
+            column = request.query_params.get('column', 'id')
+            order_by = f'{"-" if order_by == "desc" else ""}{column}'
+            typ = request.query_params.get('typ', None)
+            dosage_amount = request.query_params.get('amount', None)
+            frequency = request.query_params.get('frequency', None)
+            search = request.query_params.get('search', None)
+            start_date = request.query_params.get('start_date', None)
+            end_date = request.query_params.get('end_date', None)
 
             query_set = Q(user_id=request.user.id, is_active=True)
+
+            if start_date and end_date:
+                query_set &= Q(start_from__gte=start_date) & Q(end_to__lte=end_date)
+            elif start_date:
+                query_set &= Q(start_from__gte=start_date)
+            elif end_date:
+                query_set &= Q(end_to__lte=end_date)
+
+            if typ:
+                query_set &= Q(type=typ)
+            if dosage_amount:
+                query_set &= Q(dosage_amount=dosage_amount)
+            if frequency:
+                query_set &= Q(frequency=frequency)
+            if search:
+                query_set &= Q(name__icontains=search) | \
+                             Q(frequency=search)
 
             if pk:
                 query_set &= Q(id=pk)
@@ -54,7 +73,7 @@ class MedicineView(BaseAPIView):
                     )
                 ) \
                     .filter(query_set) \
-                    .order_by('-id')
+                    .order_by(order_by)
 
                 serializer = MedicineSerializer(
                     query[offset:limit + offset],
@@ -213,7 +232,18 @@ class DoseIntakeView(BaseAPIView):
 
     def get(self, request, pk=None):
         try:
+            # a = calendar.day_name
             dat = request.query_params.get('date', date.today())
+            a = DosageTime.objects.get(id=pk)
+
+            if datetime.datetime.now().time() < a.time or a.time + datetime.timedelta(
+                    minutes=45) > datetime.datetime.now().time():
+                return self.send_response(
+                    success=False,
+                    code='422',
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    description=""
+                )
 
             obj, is_created = DosageHistory.objects.get_or_create(date=dat,
                                                                   dosage_id=pk)

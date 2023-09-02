@@ -11,10 +11,11 @@ class DosageTimeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(allow_null=True, required=False)
     time = serializers.TimeField()
     taken = serializers.SerializerMethodField()
+    day = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = DosageTime
-        fields = ("id", "time", "taken")
+        fields = ("id", "time", "taken", 'day')
 
     def get_taken(self, obj):
         return obj.is_taken()
@@ -42,6 +43,8 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
     image = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     additional_notes = serializers.CharField()
     medication_type_other = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    custom_frequency = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    days = serializers.ListField(required=False, allow_null=True, allow_empty=True)
 
     class Meta:
         model = Medicine
@@ -66,14 +69,17 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
             "reminders",
             "image",
             "additional_notes",
-            "medication_type_other"
+            "medication_type_other",
+            "custom_frequency",
+            "days"
         )
 
     def create(self, validated_data):
         with transaction.atomic():
             dosage = validated_data.pop("medicine_dosage")
             obj = Medicine.objects.create(**validated_data)
-            DosageTime.objects.bulk_create([DosageTime(medicine_id=obj.id, time=x['time']) for x in dosage])
+            d = DosageTime.objects.bulk_create(
+                [DosageTime(medicine_id=obj.id, time=x['time'], day=x.get('day', None)) for x in dosage])
             Medicine.creat_events(obj)
             return obj
 
@@ -84,29 +90,33 @@ class MedicineSerializer(DynamicFieldsModelSerializer):
             for x in dosage:
                 if x.get("id"):
                     deleting.append(x["id"])
-                    updated.append(DosageTime(id=x["id"], time=x['time']))
+                    updated.append(DosageTime(id=x["id"], time=x['time'], day=x.get('day', None)))
                 else:
-                    creation.append(DosageTime(medicine_id=instance.id, time=x["time"]))
+                    creation.append(DosageTime(medicine_id=instance.id, time=x["time"], day=x.get('day', None)))
+            if updated:
+                DosageTime.objects.bulk_update(updated, fields=["time", "day"])
+            DosageTime.objects.filter(medicine_id=instance.id).exclude(id__in=deleting).update(is_active=False)
             if creation:
                 DosageTime.objects.bulk_create(creation)
-            if updated:
-                DosageTime.objects.bulk_update(updated, fields=["time"])
-            if deleting:
-                DosageTime.objects.filter(medicine_id=instance.id).exclude(id__in=deleting).update(is_active=False)
 
             instance.quantity = validated_data.get('quantity', instance.quantity)
             instance.name = validated_data.get('name', instance.name)
+            instance.frequency = validated_data.get('frequency', instance.frequency)
             instance.remainder_time = validated_data.get('remainder_time', instance.remainder_time)
             instance.forgot_remainder = validated_data.get('forgot_remainder', instance.forgot_remainder)
             instance.start_from = validated_data.get('start_from', instance.start_from)
-            # instance.medicine_dosage = validated_data.get('medicine_dosage', instance.medicine_dosage)
+            instance.end_to = validated_data.get('end_to', instance.end_to)
             instance.additional_notes = validated_data.get('additional_notes', instance.additional_notes)
             instance.type = validated_data.get('type', instance.type)
             instance.medication_type_other = validated_data.get('medication_type_other', instance.medication_type_other)
             instance.reminders = validated_data.get('reminders', instance.reminders)
             instance.instructions = validated_data.get('instructions', instance.instructions)
             instance.meal = validated_data.get('meal', instance.meal)
-
+            instance.custom_frequency = validated_data.get('custom_frequency', instance.custom_frequency)
+            instance.days =validated_data.get('days', instance.days)
+            EventMedication.objects.filter(medicine_id=instance.id).delete()
+            EventMedication.objects.filter(medicine_id=instance.id).delete()
+            Medicine.creat_events(instance)
             instance.save()
             return instance
 

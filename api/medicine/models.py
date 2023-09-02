@@ -2,6 +2,7 @@ import datetime
 from datetime import date
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from dateutil.relativedelta import relativedelta
 # Create your models here.
@@ -9,12 +10,24 @@ from api.calendars.models import Event
 from api.users.models import User
 from main.models import Log
 
+import calendar
+
+week = {
+    "monday": 1,
+    "tuesday": 2,
+    'wednesday': 3,
+    'thursday': 4,
+    'friday': 5,
+    'saturday': 6,
+    'sunday': 7
+}
+
 
 class MedicineFrequency:
     DAILY = 'daily'
     WEEKLY = 'weekly'
     MONTHLY = 'monthly'
-    DAYS = 'days'
+    OTHERS = 'others'
 
 
 class Remainder:
@@ -44,6 +57,8 @@ class Medicine(Log):
     quantity = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     medication_type_other = models.TextField(null=True)
+    custom_frequency = models.TextField(null=True)
+    days = ArrayField(base_field=models.CharField(max_length=10, null=True), size=7, null=True)
 
     class Meta:
         db_table = 'Medicine'
@@ -53,25 +68,48 @@ class Medicine(Log):
 
     @staticmethod
     def creat_events(medicine):
-        if medicine.end_to:
-            days = (medicine.end_to - medicine.start_from).days
+
+        if medicine.frequency == MedicineFrequency.OTHERS:
+
+            for x in medicine.days:
+                a = week[x] - medicine.start_from.isoweekday()
+                if a < 0:
+                    a = (a + 7) % 8
+                else:
+                    a = abs(a)
+                start = medicine.start_from + datetime.timedelta(days=a)
+                days = (medicine.end_to - start).days
+                while days >= 0:
+                    obj, _ = Event.objects.get_or_create(date=start, user_id=medicine.user.id)
+                    EventMedication.objects.get_or_create(event_id=obj.id, medicine_id=medicine.id)
+                    start = start + datetime.timedelta(days=7)
+                    days -= 7
+
         else:
-            days = medicine.quantity
+            if medicine.end_to:
+                days = (medicine.end_to - medicine.start_from).days
 
-        daye_time = medicine.start_from
-        while days >= 0:
-            event, is_created = Event.objects.get_or_create(user_id=medicine.user.id, date=daye_time)
-            EventMedication.objects.create(event_id=event.id, medicine_id=medicine.id)
-            if medicine.frequency == MedicineFrequency.DAILY:
-                days -= 1
-                daye_time = daye_time + datetime.timedelta(days=1)
+            else:
+                days = medicine.quantity
 
-            if medicine.frequency == MedicineFrequency.WEEKLY:
-                daye_time = daye_time + datetime.timedelta(days=7)
-                days -= 7
-            if medicine.frequency == MedicineFrequency.MONTHLY:
-                daye_time = daye_time + datetime.timedelta(days=30)
-                days -= 30
+            # if medicine.frequency == MedicineFrequency:
+            #     a = medicine.start_from.isoweekday()-
+            daye_time = medicine.start_from
+            while days >= 0:
+                event, is_created = Event.objects.get_or_create(user_id=medicine.user.id, date=daye_time)
+                EventMedication.objects.create(event_id=event.id, medicine_id=medicine.id)
+                if medicine.frequency == MedicineFrequency.DAILY:
+                    days -= 1
+                    daye_time = daye_time + datetime.timedelta(days=1)
+
+                elif medicine.frequency == MedicineFrequency.WEEKLY:
+                    daye_time = daye_time + datetime.timedelta(days=7)
+                    days -= 7
+                elif medicine.frequency == MedicineFrequency.MONTHLY:
+                    daye_time = daye_time + datetime.timedelta(days=30)
+                    days -= 30
+
+            # elif medicine.frequency==MedicineFrequency.OTHERS:
 
     #
     # def is_enable(self):
@@ -82,13 +120,20 @@ class DosageTime(Log):
     medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, null=True, related_name='medicine_dosage')
     time = models.TimeField(null=True)
     is_active = models.BooleanField(default=True, null=True)
+    day = models.CharField(max_length=255, null=True)
     event_id = models.TextField(null=True)
+
+    class Meta:
+        db_table = 'DosageTime'
 
     def is_taken(self):
         data = datetime.date.today()
         routine = self.medicine.frequency
         if routine == MedicineFrequency.DAILY:
             return True if self.dosage_history.filter(date=data).exists() else False
+        if routine == MedicineFrequency.OTHERS:
+            event = EventMedication.objects.filter(medicine_id=self.medicine.id, event__date=date.today())
+            return True if event.exists() and self.dosage_history.filter(date=data).exists() else False
         else:
             days = 7 if self.medicine.frequency == MedicineFrequency.WEEKLY else 30
             last_dosage = self.dosage_history.last()
@@ -100,54 +145,105 @@ class DosageTime(Log):
     @staticmethod
     def get_un_sync_dosage(user_id):
         dic = {}
-        obj = DosageTime.objects.filter(event_id__isnull=True, is_active=True, medicine__is_active=True,
-                                        medicine__user_id=user_id)
+        obj = DosageTime \
+            .objects \
+            .filter(
+            event_id__isnull=True,
+            is_active=True,
+            medicine__is_active=True,
+            medicine__user_id=user_id
+        )
         for x in obj:
-            arr = []
-            if x.medicine.end_to:
-                days = (x.medicine.end_to - x.medicine.start_from).days
+            if x.medicine.frequency == MedicineFrequency.OTHERS:
+                arr = []
+                for y in x.medicine.days:
+                    a = week[y] - x.medicine.start_from.isoweekday()
+                    if a < 0:
+                        a = (a + 7) % 8
+                    else:
+                        a = abs(a)
+                    start = x.medicine.start_from + datetime.timedelta(days=a)
+                    days = (x.medicine.end_to - start).days
+                    while days >= 0:
+                        a = {
+                            "summary": x.medicine.name,
+                            "description": x.medicine.name,
+                            "start": {
+                                "dateTime": datetime.datetime.combine(start, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
+                                "timeZone": settings.TIME_ZON
+                            },
+                            "end": {
+                                "dateTime": datetime.datetime.combine(start, x.time).strftime('%Y-%m-%dT%H:%M:%S'),
+                                "timeZone": settings.TIME_ZON
+                            },
+                            "location": "Event Location",
+                            "colorId":5,
+                            # "attendees": [
+                            #     {"email": "attendee1@example.com"},
+                            #     {"email": "attendee2@example.com"}
+                            # ],
+                            "reminders": {
+                                "useDefault": False,
+                                "overrides": [
+                                    {"method": "email", "minutes": x.medicine.remainder_time},
+                                    {"method": "popup", "minutes": x.medicine.remainder_time}
+                                ]
+                            }
+                        }
+
+                        start = start + datetime.timedelta(days=7)
+                        days -= 7
+                        arr.append(a)
+
+                dic[x.id] = arr
             else:
-                days = x.medicine.quantity
+                arr = []
+                if x.medicine.end_to:
+                    days = (x.medicine.end_to - x.medicine.start_from).days
+                else:
+                    days = x.medicine.quantity
 
-            daye_time = datetime.datetime.combine(x.medicine.start_from, x.time)
-            while days >= 0:
+                daye_time = datetime.datetime.combine(x.medicine.start_from, x.time)
+                while days >= 0:
 
-                a = {
-                    "summary": x.medicine.name,
-                    "description": x.medicine.name,
-                    "start": {
-                        "dateTime": daye_time.strftime('%Y-%m-%dT%H:%M:%S'),
-                        "timeZone": settings.TIME_ZON
-                    },
-                    "end": {
-                        "dateTime": daye_time.strftime('%Y-%m-%dT%H:%M:%S'),
-                        "timeZone": settings.TIME_ZON
-                    },
-                    "location": "Event Location",
-                    # "attendees": [
-                    #     {"email": "attendee1@example.com"},
-                    #     {"email": "attendee2@example.com"}
-                    # ],
-                    "reminders": {
-                        "useDefault": False,
-                        "overrides": [
-                            {"method": "email", "minutes": x.medicine.remainder_time},
-                            {"method": "popup", "minutes": x.medicine.remainder_time}
-                        ]
+                    a = {
+                        "summary": x.medicine.name,
+                        "description": x.medicine.name,
+                        "start": {
+                            "dateTime": daye_time.strftime('%Y-%m-%dT%H:%M:%S'),
+                            "timeZone": settings.TIME_ZON
+                        },
+                        "end": {
+                            "dateTime": daye_time.strftime('%Y-%m-%dT%H:%M:%S'),
+                            "timeZone": settings.TIME_ZON
+                        },
+                        "location": "Event Location",
+                        "colorId": 5,
+                        # "attendees": [
+                        #     {"email": "attendee1@example.com"},
+                        #     {"email": "attendee2@example.com"}
+                        # ],
+                        "reminders": {
+                            "useDefault": False,
+                            "overrides": [
+                                {"method": "email", "minutes": x.medicine.remainder_time},
+                                {"method": "popup", "minutes": x.medicine.remainder_time}
+                            ]
+                        }
                     }
-                }
-                arr.append(a)
-                if x.medicine.frequency == MedicineFrequency.DAILY:
-                    days -= 1
-                    daye_time = daye_time + datetime.timedelta(days=1)
+                    arr.append(a)
+                    if x.medicine.frequency == MedicineFrequency.DAILY:
+                        days -= 1
+                        daye_time = daye_time + datetime.timedelta(days=1)
 
-                if x.medicine.frequency == MedicineFrequency.WEEKLY:
-                    daye_time = daye_time + datetime.timedelta(days=7)
-                    days -= 7
-                if x.medicine.frequency == MedicineFrequency.MONTHLY:
-                    daye_time = daye_time + datetime.timedelta(days=30)
-                    days -= 30
-            dic[x.id] = arr
+                    if x.medicine.frequency == MedicineFrequency.WEEKLY:
+                        daye_time = daye_time + datetime.timedelta(days=7)
+                        days -= 7
+                    if x.medicine.frequency == MedicineFrequency.MONTHLY:
+                        daye_time = daye_time + datetime.timedelta(days=30)
+                        days -= 30
+                dic[x.id] = arr
+
         return dic
 
     @staticmethod
@@ -197,7 +293,7 @@ class DosageTime(Log):
             month = []
             data = []
             week = 1
-            start = date.today() - datetime.timedelta(days=6)
+            start = date.today() - datetime.timedelta(days=7)
             end = date.today()
             month.append(start)
             # start += datetime.timedelta(days=7)

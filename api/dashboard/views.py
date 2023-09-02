@@ -1,8 +1,9 @@
 import datetime
 from datetime import date
+import calendar
 
 from django.db import models
-from django.db.models import Q, F, Case, When, Value, Sum, Count
+from django.db.models import Q, F, Case, When, Value, Sum, Count, Prefetch
 from django.db.models.functions import ExtractDay, TruncMonth, TruncWeek
 from django.shortcuts import render
 
@@ -28,22 +29,26 @@ class DashboardView(BaseAPIView):
             s = date.today()
             query = Q(user_id=request.user.id, ) & Q(is_active=True, )
             medi_query_set = Medicine \
-                .objects \
+                .objects .prefetch_related(
+                    Prefetch(
+                        "medicine_dosage",
+                        queryset=DosageTime.objects.filter(is_active=True)
+                    ))\
                 .filter(query, medicine_event__event__date=s).distinct() \
-                .annotate(
-                divisor=Case(
-                    When(frequency='daily', then=Value(1)),
-                    When(frequency='weekly', then=Value(7)),
-                    default=Value(30),
-                    output_field=models.IntegerField()
-                )
-            ).annotate(days=(ExtractDay(s - (F('start_from')))), )
-            arr = []
-            for x in medi_query_set:
-                if x.days % x.divisor == 0:
-                    arr.append(x)
+            #     .annotate(
+            #     divisor=Case(
+            #         When(frequency='daily', then=Value(1)),
+            #         When(frequency='weekly', then=Value(7)),
+            #         default=Value(30),
+            #         output_field=models.IntegerField()
+            #     )
+            # ).annotate(day=(ExtractDay(s - (F('start_from')))), )
+            # arr = []
+            # for x in medi_query_set:
+            #     if x.day % x.divisor == 0:
+            #         arr.append(x)
 
-            serializer1 = MedicineSerializer(arr, many=True)
+            serializer1 = MedicineSerializer(medi_query_set, many=True)
             appointment_query_set = Appointment.objects.filter(date__date=date.today(), user_id=request.user.id)
             serializer2 = AppointmentSerializer(appointment_query_set, many=True)
             # total = Medicine.objects.filter(is_active=True, user_id=request.user.id).aggregate(medi=Sum('quantity'))[
@@ -71,7 +76,7 @@ class DashboardView(BaseAPIView):
                 .filter(
                 dosage__medicine__is_active=True,
                 dosage__medicine__user_id=request.user.id,
-                date__range=[date.today() - datetime.timedelta(days=6), date.today()]
+                date__range=[date.today() - datetime.timedelta(days=7), date.today()]
             ) \
                 .annotate(week=F('date')) \
                 .values('week') \

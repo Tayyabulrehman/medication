@@ -53,6 +53,7 @@ class Symptoms(Log):
                     "timeZone": settings.TIME_ZON
                 },
                 "location": "",
+                "colorId":"11",
                 # "attendees": [
                 #     {"email": "attendee1@example.com"},
                 #     {"email": "attendee2@example.com"}

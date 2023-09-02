@@ -225,7 +225,11 @@ class CalendarView(BaseAPIView):
                 Prefetch("event_symptoms", queryset=Symptoms.objects.all().order_by('date'),
                          to_attr='symptoms'),
 
-                Prefetch("event_medicine", queryset=EventMedication.objects.filter(is_active=True),
+                Prefetch("event_medicine", queryset=EventMedication.objects.prefetch_related(
+                    Prefetch(
+                        "medicine__medicine_dosage",
+                        queryset=DosageTime.objects.filter(is_active=True)
+                    )).filter(is_active=True),
                          to_attr='medicine'),
             ).filter(query_set)
 

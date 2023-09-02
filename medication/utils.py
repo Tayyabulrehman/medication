@@ -5,6 +5,7 @@ from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
 
+import pytz
 from django.conf import settings
 from django.core.files import File
 from django.core.files.base import ContentFile
@@ -303,3 +304,10 @@ def search_array_of_dict(array, key, value, is_month):
             if x[key] == value:
                 return x
     return None
+
+
+def convert_to_localtime(utctime):
+    fmt = "%H:%M:%S"
+    utc = utctime.replace(tzinfo=pytz.UTC)
+    localtz = utc.astimezone(timezone.get_current_timezone())
+    return localtz.strftime(fmt)

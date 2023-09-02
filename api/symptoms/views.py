@@ -1,5 +1,5 @@
 from django.core.exceptions import FieldError
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value
 from django.shortcuts import render
 
 # Create your views here.
@@ -19,8 +19,27 @@ class SymptomsView(BaseAPIView):
         try:
             limit = int(request.query_params.get('limit', 10))
             offset = int(request.query_params.get('offset', 0))
-            # category_id = request.query_params.get('category-id', None)
-            # search = request.query_params.get('search', None)
+            order_by = request.query_params.get('order-by', 'desc')
+            column = request.query_params.get('column', 'id')
+            order_by = f'{"-" if order_by == "desc" else ""}{column}'
+            severity = request.query_params.get('severity', None)
+            search = request.query_params.get('search', None)
+            start_date = request.query_params.get('start_date', None)
+            end_date = request.query_params.get('end_date', None)
+            sort = request.query_params.get('sort', None)
+
+            server = 0
+            moderate = 0
+            mild = 0
+            if sort == 'severe':
+                server = 1
+                moderate = 2
+                mild = 3
+            if sort == 'mild':
+                server = 3
+                moderate = 2
+                mild = 1
+
             # publish = request.query_params.get('publish', None)
             # out_stock = request.query_params.get('out-of-stock', None)
             # low_thresh = request.query_params.get('low-thresh', None)
@@ -30,13 +49,39 @@ class SymptomsView(BaseAPIView):
 
             query_set = Q(user_id=request.user.id)
 
+            if severity:
+                query_set &= Q(severity=severity)
+
+            if search:
+                query_set &= Q(title__icontains=search) \
+                             | Q(description__icontains=search) \
+                             | Q(body_part__icontains=search) | \
+                             Q(factor_other__icontains=search) \
+                             | Q(associated_factors__icontains=search) \
+                             | Q(duration=search)
+
+            if start_date:
+                query_set &= Q(date__gte=start_date)
+            if end_date:
+                query_set &= Q(date__lte=start_date)
+
             if pk:
                 query_set &= Q(id=pk)
                 query = Symptoms.objects.get(query_set)
                 serializer = SymptomsSerializer(query)
                 count = 1
             else:
-                query = Symptoms.objects.filter(query_set).order_by('-id')
+                query = Symptoms\
+                    .objects\
+                    .filter(query_set)\
+                    .annotate(order=Case(
+                        When(severity="mild", then=Value(mild)),
+                        When(severity="severe", then=Value(server)),
+                        default=Value(moderate)))
+                if sort:
+                    query=query.order_by('order')
+                else:
+                    query = query.order_by(order_by)
 
                 serializer = SymptomsSerializer(
                     query[offset:limit + offset],

@@ -5,6 +5,7 @@ from api.medicine.models import EventMedication
 from api.medicine.serializer import MedicineSerializer, EventMedicineSerializer
 from api.symptoms.serializer import SymptomsSerializer
 from api.users.models import User
+from medication.utils import convert_to_localtime
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -29,7 +30,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super(AppointmentSerializer, self).to_representation(instance)
-        data['time'] = instance.date.strftime("%H:%M:%S")
+        data['time'] = convert_to_localtime(instance.date)
         return data
 
 

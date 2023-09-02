@@ -60,6 +60,7 @@ class Appointment(Log):
                     "timeZone": settings.TIME_ZON
                 },
                 "location": x.location,
+                'colorId':"7",
                 # "attendees": [
                 #     {"email": "attendee1@example.com"},
                 #     {"email": "attendee2@example.com"}
