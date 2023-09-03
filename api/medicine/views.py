@@ -10,7 +10,7 @@ from django.shortcuts import render
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 
-from api.medicine.models import Medicine, DosageTime, DosageHistory
+from api.medicine.models import Medicine, DosageTime, DosageHistory, EventMedication
 from api.medicine.serializer import MedicineSerializer, ImageSerializer
 from api.permissions import IsOauthAuthenticatedCustomer
 from api.views import BaseAPIView
@@ -31,13 +31,13 @@ class MedicineView(BaseAPIView):
             dosage_amount = request.query_params.get('amount', None)
             frequency = request.query_params.get('frequency', None)
             search = request.query_params.get('search', None)
-            start_date = request.query_params.get('start_date', None)
-            end_date = request.query_params.get('end_date', None)
+            start_date = request.query_params.get('start-date', None)
+            end_date = request.query_params.get('end-date', None)
 
             query_set = Q(user_id=request.user.id, is_active=True)
 
             if start_date and end_date:
-                query_set &= Q(start_from__gte=start_date) & Q(end_to__lte=end_date)
+                query_set &= Q(start_from__range=[start_date, end_date])
             elif start_date:
                 query_set &= Q(start_from__gte=start_date)
             elif end_date:
@@ -202,6 +202,8 @@ class DeleteMedicineView(BaseAPIView):
         try:
 
             if Medicine.objects.filter(id=pk, user_id=request.user.id).update(is_active=False):
+                DosageTime.objects.filter(medicine_id=pk).update(is_active=False)
+                EventMedication.objects.filter(medicine_id=pk).delete()
                 return self.send_response(
                     success=True,
                     code='200',
@@ -235,9 +237,9 @@ class DoseIntakeView(BaseAPIView):
             # a = calendar.day_name
             dat = request.query_params.get('date', date.today())
             a = DosageTime.objects.get(id=pk)
+            s = datetime.datetime.combine(date.today(), a.time) + datetime.timedelta(minutes=45)
 
-            if datetime.datetime.now().time() < a.time or a.time + datetime.timedelta(
-                    minutes=45) > datetime.datetime.now().time():
+            if datetime.datetime.now().time() < a.time or s.time() < datetime.datetime.now().time():
                 return self.send_response(
                     success=False,
                     code='422',

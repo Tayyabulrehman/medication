@@ -60,9 +60,13 @@ class SymptomsView(BaseAPIView):
                              | Q(associated_factors__icontains=search) \
                              | Q(duration=search)
 
-            if start_date:
+            if start_date and end_date:
+                query_set &= Q(date__range=[start_date, end_date])
+
+
+            elif start_date:
                 query_set &= Q(date__gte=start_date)
-            if end_date:
+            elif end_date:
                 query_set &= Q(date__lte=start_date)
 
             if pk:
@@ -71,15 +75,15 @@ class SymptomsView(BaseAPIView):
                 serializer = SymptomsSerializer(query)
                 count = 1
             else:
-                query = Symptoms\
-                    .objects\
-                    .filter(query_set)\
+                query = Symptoms \
+                    .objects \
+                    .filter(query_set) \
                     .annotate(order=Case(
-                        When(severity="mild", then=Value(mild)),
-                        When(severity="severe", then=Value(server)),
-                        default=Value(moderate)))
+                    When(severity="mild", then=Value(mild)),
+                    When(severity="severe", then=Value(server)),
+                    default=Value(moderate)))
                 if sort:
-                    query=query.order_by('order')
+                    query = query.order_by('order')
                 else:
                     query = query.order_by(order_by)
 

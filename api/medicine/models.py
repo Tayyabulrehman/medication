@@ -40,13 +40,13 @@ class Medicine(Log):
     name = models.CharField(max_length=255, null=True)
     type = models.CharField(max_length=255, null=True)
     dosage_amount = models.IntegerField(null=True)
-    unit = models.CharField(max_length=10, null=True)
-    frequency = models.CharField(max_length=15, null=True)
+    unit = models.CharField(max_length=255, null=True)
+    frequency = models.CharField(max_length=255, null=True)
 
     end_to = models.DateField(null=True)
-    meal = models.CharField(max_length=15, null=True)
+    meal = models.CharField(max_length=255, null=True)
     instructions = models.TextField(null=True)
-    reminders = models.CharField(max_length=20, null=True)
+    reminders = models.CharField(max_length=255, null=True)
     image = models.ImageField(null=True)
     additional_notes = models.TextField(null=True)
     start_from = models.DateField(null=True)
@@ -58,7 +58,7 @@ class Medicine(Log):
     is_active = models.BooleanField(default=True)
     medication_type_other = models.TextField(null=True)
     custom_frequency = models.TextField(null=True)
-    days = ArrayField(base_field=models.CharField(max_length=10, null=True), size=7, null=True)
+    days = ArrayField(base_field=models.CharField(max_length=20, null=True), size=7, null=True)
 
     class Meta:
         db_table = 'Medicine'
@@ -135,12 +135,14 @@ class DosageTime(Log):
             event = EventMedication.objects.filter(medicine_id=self.medicine.id, event__date=date.today())
             return True if event.exists() and self.dosage_history.filter(date=data).exists() else False
         else:
-            days = 7 if self.medicine.frequency == MedicineFrequency.WEEKLY else 30
-            last_dosage = self.dosage_history.last()
-            if last_dosage:
-                return False if last_dosage.date + datetime.timedelta(days=days) == data else True
-            else:
-                return False if self.medicine.start_from == data else True
+            event = EventMedication.objects.filter(medicine_id=self.medicine.id, event__date=date.today())
+            return True if event.exists() and self.dosage_history.filter(date=data).exists() else False
+            # days = 7 if self.medicine.frequency == MedicineFrequency.WEEKLY else 30
+            # last_dosage = self.dosage_history.last()
+            # if last_dosage:
+            #     return False if last_dosage.date + datetime.timedelta(days=days) == data else True
+            # else:
+            #     return False if self.medicine.start_from == data else True
 
     @staticmethod
     def get_un_sync_dosage(user_id):
@@ -177,7 +179,7 @@ class DosageTime(Log):
                                 "timeZone": settings.TIME_ZON
                             },
                             "location": "Event Location",
-                            "colorId":5,
+                            "colorId": 5,
                             # "attendees": [
                             #     {"email": "attendee1@example.com"},
                             #     {"email": "attendee2@example.com"}
@@ -251,7 +253,8 @@ class DosageTime(Log):
         try:
             month = []
             data = []
-            start = EventMedication.objects.filter(is_active=True, medicine__user_id=user_id).order_by(
+            start = EventMedication.objects.filter(is_active=True, medicine__user_id=user_id,
+                                                   medicine__is_active=True).order_by(
                 "event__date").first().event.date
             # start = Medicine.objects.filter(is_active=True, user_id=user_id).order_by("start_from").first().start_from
             end = date.today()
@@ -261,8 +264,9 @@ class DosageTime(Log):
                 month.append(start)
             for x in month:
                 count = 0
-                for y in EventMedication.objects.filter(is_active=True, medicine__user_id=user_id,
-                                                        event__date__month=x.month).exclude(event__date=date.today()):
+                for y in EventMedication \
+                        .objects.filter(is_active=True, medicine__user_id=user_id, event__date__month=x.month,
+                                        medicine__is_active=True).exclude(event__date=date.today()):
                     days = 1
                     count += y.medicine.medicine_dosage.filter(is_active=True).count() * days
 
