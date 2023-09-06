@@ -236,16 +236,16 @@ class DoseIntakeView(BaseAPIView):
         try:
             # a = calendar.day_name
             dat = request.query_params.get('date', date.today())
-            a = DosageTime.objects.get(id=pk)
-            s = datetime.datetime.combine(date.today(), a.time) + datetime.timedelta(minutes=45)
-
-            if datetime.datetime.now().time() < a.time or s.time() < datetime.datetime.now().time():
-                return self.send_response(
-                    success=False,
-                    code='422',
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    description=""
-                )
+            # a = DosageTime.objects.get(id=pk)
+            # s = datetime.datetime.combine(date.today(), a.time) + datetime.timedelta(minutes=45)
+            #
+            # if datetime.datetime.now().time() < a.time or s.time() < datetime.datetime.now().time():
+            #     return self.send_response(
+            #         success=False,
+            #         code='422',
+            #         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            #         description=""
+            #     )
 
             obj, is_created = DosageHistory.objects.get_or_create(date=dat,
                                                                   dosage_id=pk)
